@@ -6,10 +6,10 @@
 # Datatypes (KEYWORD1)
 #######################################
 
-egoShield		KEYWORD1
+egoShield	KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
 #######################################
-loop		KEYWORD2
-setup		KEYWORD2
+loop	KEYWORD2
+setup	KEYWORD2
