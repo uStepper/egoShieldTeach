@@ -1,4 +1,4 @@
-#include <egoShield.h>
+#include <egoShieldTeach.h>
 
 #define ACCELERATION 4000 //Acceleration used during PLAY
 #define VELOCITY 2000 //Velocity used during PLAY

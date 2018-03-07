@@ -423,7 +423,7 @@ private:
 	/**
 	* @brief      	Holds the code for the changing velocity during sequence play.
 	*/
-	void changeVelocity(void);
+	void changeVelocity(bool speedDirection = 1);
 	/**
 	* @brief 		This function handles the debouncing and tracking of whether buttons are pressed, released or held
 	*
