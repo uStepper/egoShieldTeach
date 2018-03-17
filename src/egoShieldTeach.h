@@ -1,7 +1,7 @@
 /********************************************************************************************
 * 	 	File: 		egoShieldTeach.h														*
-*		Version:    1.0.0                                           						*
-*      	Date: 		January 10th, 2018	                                    				*
+*		Version:    1.1.0                                           						*
+*      	Date: 		March 17th, 2018	                                    				*
 *      	Author: 	Mogens Groth Nicolaisen                                					*
 *                                                   										*	
 *********************************************************************************************
@@ -78,6 +78,13 @@
 *
 *	\author Mogens Groth Nicolaisen (mogens@ustepper.com)
 *	\par Change Log
+*
+*	\version 1.1.0:
+* 	- Fixed example code
+*	- Display now shows current position in mm instead of degrees
+*	- Rail now homes as part of the startup routine
+*	- Made it possible to change speed while running
+*
 *	\version 1.0.0:
 * 	- changed button debouncing algorithm
 *	- fixed various minor bugs
@@ -183,24 +190,30 @@ static unsigned char logo_bits[] = {
    0x00, 0x00, 0x00, 0x00, 0x00, 0xf0, 0x07, 0xfc, 0x00, 0x00, 0x00, 0x00,
    0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x07, 0xf8, 0x00, 0x00, 0x00, 0x00 };
 
+
+/**
+ * @brief struct to hold information required to debounce button.
+ */
 typedef struct {
-	uint8_t debounce,
-	state,
-	holdCnt,
-	btn;
-	uint16_t time;
+	uint8_t debounce,		/**< Variable to hold current and past samples of the button GPIO pin*/
+	state,					/**< Current debounce state of the button*/
+	holdCnt,				/**< Counter to determined when the button should go from PRESSED to HOLD*/
+	btn;					/**< Variable to indicate a button press or release*/
+	uint16_t time;			/**< Counter to decide when a new button press should be given in the case of a HELD button*/
 } buttons;
 
-#define DEPRESSED 0
-#define PRESSED 1
-#define HOLD 2
+#define DEPRESSED 0			/** Definition of DEPRESSED button state */
+#define PRESSED 1			/** Definition of PRESSED button state */
+#define HOLD 2				/** Definition of HOLD button state */
 
-#define DBSAMPLEPERIOD 1UL
-#define HOLDTIME 75
-#define HOLDTICK 5
+#define HOLDTIME 75			/** Number of PRESSED samples before the button should be considered HOLD */
+#define HOLDTICK 5			/** Number of HOLD samples before a new button press should be issued */
 
 /** Macro for resetting watchdog timer */
 #define RESETWDT asm volatile("WDR \n\t")
+
+/** Periodic interrupt to sample buttons */
+extern "C" void WDT_vect(void) __attribute__ ((signal,used));
 
 /** 
 *
@@ -211,7 +224,6 @@ typedef struct {
 *	In order to see if the button is held or just pressed, a counter (seperate for each button) is incremented every time all the last five measurements are identical
 *	and if this counter reaches the value "HOLDTIME", the button are considered held. If any IO measurement is different from the last one, the counter is reset.
 */
-extern "C" void WDT_vect(void) __attribute__ ((signal,used));
 
 class egoShield
 {
@@ -315,11 +327,11 @@ private:
 	float resolution;
 	/** This variable holds the brake flag */
 	bool brakeFlag;
-	/* Declaration of structs for each button*/
-	volatile buttons   	forwardBtn    = {0x1F, DEPRESSED, 0, 0, 0},
-          				playBtn       = {0x1F, DEPRESSED, 0, 0, 0},
-          				recordBtn     = {0x1F, DEPRESSED, 0, 0, 0},
-          				backwardsBtn  = {0x1F, DEPRESSED, 0, 0, 0};
+	
+	volatile buttons   	forwardBtn    = {0x1F, DEPRESSED, 0, 0, 0},	/**< Declaration of structs for forward button*/
+          				playBtn       = {0x1F, DEPRESSED, 0, 0, 0}, /**< Declaration of structs for play button*/
+          				recordBtn     = {0x1F, DEPRESSED, 0, 0, 0}, /**< Declaration of structs for record button*/
+          				backwardsBtn  = {0x1F, DEPRESSED, 0, 0, 0}; /**< Declaration of structs for backwards button*/
 
     /**
 	* @brief      	Function for resetting the state of a button seperately
@@ -423,7 +435,7 @@ private:
 	/**
 	* @brief      	Holds the code for the changing velocity during sequence play.
 	*/
-	void changeVelocity(void);
+	void changeVelocity(bool speedDirection = 1);
 	/**
 	* @brief 		This function handles the debouncing and tracking of whether buttons are pressed, released or held
 	*

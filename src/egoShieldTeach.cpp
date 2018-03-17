@@ -1,7 +1,7 @@
 /********************************************************************************************
 *       File:       egoShieldTeach.cpp                                                      *
-*       Version:    1.0.0                                                                   *
-*       Date:       January 10th, 2018                                                      *
+*       Version:    1.1.0                                                                   *
+*       Date:       March 17th, 2018                                                        *
 *       Author:     Mogens Groth Nicolaisen                                                 *
 *                                                                                           * 
 *********************************************************************************************
@@ -22,7 +22,7 @@
 *                                                                                           *
 *   example:                                                                                *
 *                                                                                           *
-*   egoShield ego;                                                                          *
+*   egoShieldTeach ego;                                                                     *
 *                                                                                           *
 *   void setup()                                                                            *
 *   {                                                                                       *
@@ -122,9 +122,14 @@ void egoShield::setup(uint16_t acc, uint16_t vel, uint8_t uStep, uint16_t fTol, 
   }
   while(stepper.encoder.detectMagnet() == 2 || stepper.encoder.detectMagnet() == 1);
 
+  this->startPage();//show startpage
   stepper.encoder.setHome();      //Set home to current position
   stepper.setMaxVelocity(this->velocity);
   stepper.setMaxAcceleration(this->acceleration);
+  stepper.moveToEnd(1);
+  stepper.moveToAngle(30,HARD);
+  while(stepper.getMotorState());
+  stepper.encoder.setHome();
   pidFlag = 1;//enable PID
   //Setup IO pins
   pinMode(FWBT ,INPUT);
@@ -139,7 +144,7 @@ void egoShield::setup(uint16_t acc, uint16_t vel, uint8_t uStep, uint16_t fTol, 
   digitalWrite(BWBT ,HIGH);//pull-up
   setPoint = stepper.encoder.getAngleMoved();//set manual move setpoint to current position
   
-  this->startPage();//show startpage
+  
   delay(2000);//for 2 seconds
   this->resetAllButton();   //Initialize buttons 
   state = 'a';//start in idle
@@ -277,11 +282,6 @@ void egoShield::playMode(void)
         this->resetAllButton(); 
         return;
     }
-    else //Long press = stop
-    {
-      this->resetAllButton();    
-      this->changeVelocity();
-    }
   }
   else if(this->playBtn.btn)//play/stop/pause
   {
@@ -319,6 +319,8 @@ void egoShield::playMode(void)
         this->resetAllButton(); 
         return;
       }
+      stepper.setMaxVelocity(this->velocity);
+      stepper.setMaxAcceleration(this->acceleration);
       stepper.moveToAngle(pos[place],brakeFlag);   
     }
   }
@@ -328,37 +330,53 @@ void egoShield::playMode(void)
     this->resetButton(&forwardBtn);
     loopMode = 1;
   }
-  else if(this->backwardsBtn.state == HOLD)//loop mode stop
+  if(this->forwardBtn.btn)//if manual backward signal
   {
-    this->resetButton(&backwardsBtn);
-    loopMode = 0;
+    while(this->forwardBtn.state == PRESSED);
+    if(this->forwardBtn.state == HOLD)
+    {
+      loopMode = 1;
+      this->playPage(loopMode,pidFlag,place,0);
+      while(this->forwardBtn.state == HOLD);
+      this->forwardBtn.btn = 0;
+    }
+    else
+    {
+      changeVelocity(1);
+      this->forwardBtn.btn = 0;
+    }
+  }
+  else if(this->backwardsBtn.btn)//if manual backward signal
+  {
+    while(this->backwardsBtn.state == PRESSED);
+    if(this->backwardsBtn.state == HOLD)
+    {
+      loopMode = 0;
+      this->playPage(loopMode,pidFlag,place,0);
+      while(this->backwardsBtn.state == HOLD);
+      this->backwardsBtn.btn = 0;
+    }
+    else
+    {
+      changeVelocity(0);
+      this->backwardsBtn.btn = 0;
+    }
   }
 }
 
-void egoShield::changeVelocity(void)
+void egoShield::changeVelocity(bool speedDirection)
 {
-  for(;;)
+  if(speedDirection && this->velocity <= 9900 && this->acceleration <= 19900)//increase speed
   {
-    this->playPage(loopMode,pidFlag,place,1);
-    if(this->forwardBtn.btn == 1 && this->velocity <= 9900 && this->acceleration <= 19900)//increase speed
-    {
-      this->forwardBtn.btn = 0;
-      this->velocity+=100;
-      this->acceleration+=100;
-    }
-    else if(this->backwardsBtn.btn == 1 && this->velocity >= 200 && this->acceleration >= 200)//decrease speed
-    {
-      this->backwardsBtn.btn = 0;
-      this->velocity-=100;
-      this->acceleration-=100;
-    }
-    else if(this->playBtn.btn == 1)
-    {
-      stepper.setMaxVelocity(this->velocity);
-      stepper.setMaxAcceleration(this->acceleration);
-      this->resetAllButton(); 
-      return;
-    }
+    this->forwardBtn.btn = 0;
+    this->velocity+=100;
+    this->acceleration+=100;
+  }
+  else if(!speedDirection && this->velocity >= 200 && this->acceleration >= 200)//decrease speed
+  {
+    this->backwardsBtn.btn = 0;
+    this->velocity-=100;
+    this->acceleration-=100;
   }
 }
 
@@ -424,8 +442,8 @@ void egoShield::recordMode(void)
     this->recordBtn.btn = 0;
     if(record == 0)//If we were not recording before
     {
-      stepper.encoder.setHome();//Set current position as home
-      setPoint = 0;
+      //stepper.encoder.setHome();//Set current position as home
+      //setPoint = 0;
       place = 0;//Reset the array counter
       record = 1;//Record flag
     }
@@ -494,13 +512,13 @@ void egoShield::startPage(void)
 
 void egoShield::idlePage(bool pidMode, float pos)
 {
-  char buf[18];
+  char buf[20];
   String sBuf;
 
-  sBuf = "Encoder: ";
-  sBuf += (int32_t)pos;
-  sBuf += (char)176;
-  sBuf.toCharArray(buf, 18);
+  sBuf = "Position: ";
+  sBuf += (int32_t)(pos/this->resolution);
+  sBuf += " mm";
+  sBuf.toCharArray(buf, 20);
 
   u8g2->firstPage();
   do {
@@ -577,9 +595,9 @@ void egoShield::recordPage(bool pidMode, bool recorded, uint8_t index, float pos
     }
     else
     {
-    sBuf = "Encoder: ";
-    sBuf += (int32_t)pos;
-    sBuf += (char)176;
+    sBuf = "Position: ";
+    sBuf += (int32_t)(pos/this->resolution);
+    sBuf += " mm";
     sBuf.toCharArray(buf, 22);
     u8g2->drawStr(2,35,buf);
     }
@@ -626,7 +644,7 @@ void egoShield::playPage(bool loopMode, bool pidMode, uint8_t index, bool mode)
     u8g2->setDrawColor(1);
     if(mode)
     {
-      u8g2->drawStr(2,25,"Adjust velocity");
+      //u8g2->drawStr(2,25,"Adjust velocity");
     }
     else
     {

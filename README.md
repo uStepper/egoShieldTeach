@@ -18,6 +18,12 @@ http://ustepper.com/egoShield/docs/html/index.html
 
 
 ## Change Log
+1.1.0:
+- Fixed example code
+- Display now shows current position in mm instead of degrees
+- Rail now homes as part of the startup routine
+- Made it possible to change speed while running
+
 1.0.0:
 - changed button debouncing algorithm
 - fixed various minor bugs
